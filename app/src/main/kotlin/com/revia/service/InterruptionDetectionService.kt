@@ -89,6 +89,7 @@ class InterruptionDetectionService : Service() {
             val repository = ServiceLocator.repository(applicationContext)
             val interruption = repository.captureInterruption(
                 appName = AppInfo.label(applicationContext, packageName),
+                packageName = packageName,
                 onScreenText = ContentAccessibilityService.textFor(packageName),
                 lastNotification = AppNotificationListenerService.lastNotificationText
             )

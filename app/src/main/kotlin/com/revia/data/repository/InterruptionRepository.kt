@@ -26,6 +26,7 @@ class InterruptionRepository(
 
     suspend fun captureInterruption(
         appName: String,
+        packageName: String,
         onScreenText: String?,
         lastNotification: String?
     ): Interruption {
@@ -35,6 +36,7 @@ class InterruptionRepository(
 
         val interruption = Interruption(
             appName = appName,
+            packageName = packageName,
             context = onScreenText ?: lastNotification.orEmpty(),
             timestamp = timestamp,
             summary = summary

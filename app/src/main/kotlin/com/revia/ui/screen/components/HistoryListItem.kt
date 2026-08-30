@@ -1,5 +1,6 @@
 package com.revia.ui.screen.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.revia.data.db.Interruption
 import com.revia.ui.theme.LocalIsDarkTheme
 import com.revia.ui.theme.accentForApp
+import com.revia.util.rememberAppIcon
 import com.revia.util.toRelativeTimeString
 
 @Composable
@@ -38,19 +40,32 @@ fun HistoryListItem(interruption: Interruption, modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(accent.container(isDark))
-        ) {
-            Icon(
-                imageVector = Icons.Filled.History,
+        val appIcon = rememberAppIcon(interruption.packageName)
+
+        if (appIcon != null) {
+            Image(
+                bitmap = appIcon,
                 contentDescription = null,
-                tint = accent.onContainer(isDark),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
             )
+        } else {
+            // Uninstalled app, or a row logged before package names were tracked.
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(accent.container(isDark))
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.History,
+                    contentDescription = null,
+                    tint = accent.onContainer(isDark),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
 
         Column(
