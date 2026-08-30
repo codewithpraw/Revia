@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ContextSwitch</string>
+    <string name="accessibility_service_description">Lets ContextSwitch read on-screen text to build resumption summaries.</string>
+</resources>

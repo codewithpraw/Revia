@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only. Allows plaintext HTTP so the app can reach a dev backend on
+  the laptop (emulator alias, localhost, or any LAN IP at a venue). Release builds
+  do not include this file and keep Android's default HTTPS enforcement.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

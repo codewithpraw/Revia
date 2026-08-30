@@ -1,0 +1,26 @@
+# Build output (leading-slash patterns miss app/build - use bare names)
+build/
+.gradle/
+captures/
+.externalNativeBuild
+.cxx
+
+# Machine-specific - points at this laptop's SDK path
+local.properties
+
+# IDE
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# OS
+.DS_Store
+
+# Secrets - never commit API keys
+.env
+*.keystore
+*.jks
