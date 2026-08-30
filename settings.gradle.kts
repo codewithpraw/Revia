@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ContextSwitch"
+rootProject.name = "Revia"
 include(":app")

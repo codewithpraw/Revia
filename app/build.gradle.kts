@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.contextswitch"
+    namespace = "com.revia"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.contextswitch"
+        applicationId = "com.revia"
         minSdk = 29
         targetSdk = 34
         versionCode = 1

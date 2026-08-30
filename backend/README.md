@@ -1,4 +1,4 @@
-# ContextSwitch backend
+# Revia backend
 
 FastAPI service that turns a captured interruption into a one-line resumption summary.
 
@@ -49,5 +49,5 @@ Release builds do not - an `https://` URL (e.g. ngrok) is required there.
 | POST | `/resume` | Log an interruption, return its summary |
 | GET | `/history?limit=20` | Recent interruptions, newest first |
 
-History is stored in `contextswitch.db` (SQLite, created on first run). Delete the
+History is stored in `revia.db` (SQLite, created on first run). Delete the
 file to reset.

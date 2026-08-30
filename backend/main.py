@@ -1,4 +1,4 @@
-"""ContextSwitch backend.
+"""Revia backend.
 
 Turns a captured interruption (app name + on-screen text + last notification)
 into a one-line resumption summary, and keeps a history of them.
@@ -18,10 +18,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-DB_PATH = Path(__file__).parent / "contextswitch.db"
+DB_PATH = Path(__file__).parent / "revia.db"
 MODEL = "claude-opus-5"
 
-app = FastAPI(title="ContextSwitch API", version="1.0")
+app = FastAPI(title="Revia API", version="1.0")
 
 # The phone is a different origin from the laptop; without this the browser-based
 # /docs page and any future web dashboard can't call the API.
