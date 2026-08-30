@@ -121,13 +121,14 @@ fun OnboardingScreen(
 
         Button(
             onClick = onFinished,
-            enabled = state.allGranted,
+            enabled = state.usageStatsGranted,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Start using Revia")
         }
         Text(
-            text = "Signals stay on your device",
+            text = if (state.allGranted) "Signals stay on your device"
+                   else "Summaries will be basic until all three are on",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

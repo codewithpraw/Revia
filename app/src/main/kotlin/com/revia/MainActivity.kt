@@ -81,7 +81,7 @@ private fun ReviaApp() {
 
     // Onboarding only has something to say while a permission is still missing.
     val startDestination = remember {
-        if (PermissionUtils.allGranted(context)) Constants.Routes.MAIN
+        if (PermissionUtils.hasEssentialPermission(context)) Constants.Routes.MAIN
         else Constants.Routes.ONBOARDING
     }
 

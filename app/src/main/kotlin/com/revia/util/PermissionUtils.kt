@@ -35,6 +35,13 @@ object PermissionUtils {
         return flat.contains(serviceClassName)
     }
 
+    /**
+     * The one permission without which nothing works. The other two only enrich
+     * the summary, and the system can revoke accessibility at any time - losing
+     * it should not send the user back to onboarding.
+     */
+    fun hasEssentialPermission(context: Context): Boolean = hasUsageStatsPermission(context)
+
     fun allGranted(context: Context): Boolean =
         hasUsageStatsPermission(context) &&
             isNotificationListenerEnabled(context) &&

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only window-state changes: those fire when the user moves between screens or
+  apps, which is all we need. typeWindowContentChanged fires on every scroll and
+  keystroke, and the resulting load can get the service disabled by the system.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
-    android:notificationTimeout="200"
+    android:notificationTimeout="500"
     android:description="@string/accessibility_service_description" />
