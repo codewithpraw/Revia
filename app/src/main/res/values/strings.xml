@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">Revia</string>
     <string name="accessibility_service_description">Lets Revia read on-screen text to build resumption summaries.</string>
+    <string name="detection_channel_name">Interruption detection</string>
+    <string name="detection_notification_title">Watching for interruptions</string>
 </resources>

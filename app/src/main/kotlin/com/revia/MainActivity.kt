@@ -28,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.revia.data.preferences.UserPreferences
+import com.revia.service.InterruptionDetectionService
 import com.revia.ui.screen.HistoryScreen
 import com.revia.ui.screen.MainScreen
 import com.revia.ui.screen.OnboardingScreen
@@ -35,6 +36,7 @@ import com.revia.ui.screen.SettingsScreen
 import com.revia.ui.theme.ReviaTheme
 import com.revia.ui.theme.ThemeMode
 import com.revia.util.Constants
+import com.revia.util.PermissionUtils
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -45,6 +47,15 @@ private val navItems = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+
+    override fun onResume() {
+        super.onResume()
+        // Permissions are granted in system settings, so re-check on every return.
+        if (PermissionUtils.hasUsageStatsPermission(this)) {
+            InterruptionDetectionService.start(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -63,9 +74,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ReviaApp() {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    // Onboarding only has something to say while a permission is still missing.
+    val startDestination = remember {
+        if (PermissionUtils.allGranted(context)) Constants.Routes.MAIN
+        else Constants.Routes.ONBOARDING
+    }
 
     Scaffold(
         bottomBar = {
@@ -76,7 +94,7 @@ private fun ReviaApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Constants.Routes.ONBOARDING,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Constants.Routes.ONBOARDING) {

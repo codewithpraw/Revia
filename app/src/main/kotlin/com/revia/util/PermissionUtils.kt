@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Process
 import android.provider.Settings
 import android.text.TextUtils
+import com.revia.service.ContentAccessibilityService
 
 object PermissionUtils {
 
@@ -33,6 +34,11 @@ object PermissionUtils {
         if (TextUtils.isEmpty(flat)) return false
         return flat.contains(serviceClassName)
     }
+
+    fun allGranted(context: Context): Boolean =
+        hasUsageStatsPermission(context) &&
+            isNotificationListenerEnabled(context) &&
+            isAccessibilityServiceEnabled(context, ContentAccessibilityService::class.java.name)
 
     fun usageAccessSettingsIntent(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
 

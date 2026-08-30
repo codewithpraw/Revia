@@ -8,6 +8,22 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Android 11+ hides other packages by default, which makes app labels resolve
+         to raw package names. Scoped to apps with a launcher icon - the ones we track. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- The launcher declares HOME, not LAUNCHER; without this it can't be
+             identified and gets logged as an interruption. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -30,7 +46,11 @@
         <service
             android:name=".service.InterruptionDetectionService"
             android:foregroundServiceType="specialUse"
-            android:exported="false" />
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Detects app switches to reconstruct interrupted task context" />
+        </service>
 
         <service
             android:name=".service.AppNotificationListenerService"
