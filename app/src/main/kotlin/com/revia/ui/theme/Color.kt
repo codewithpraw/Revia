@@ -16,3 +16,6 @@ val LightOnSurfaceVariant = Color(0xFF6B6B70)
 val DarkBackground = Color(0xFF121212)
 val DarkSurfaceVariant = Color(0xFF1E1E1E)
 val DarkOnSurfaceVariant = Color(0xFF8A8A8E)
+
+// Dark tile the REVIA mark sits on, sampled from the source artwork
+val LogoTile = Color(0xFF11151D)

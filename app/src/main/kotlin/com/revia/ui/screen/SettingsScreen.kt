@@ -1,5 +1,6 @@
 package com.revia.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,12 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.revia.data.db.ReviaDatabase
+import com.revia.R
 import com.revia.data.preferences.UserPreferences
+import com.revia.ui.theme.LogoTile
 import com.revia.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
@@ -102,13 +104,12 @@ private fun AppIdentityHeader() {
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
+                .background(LogoTile)
         ) {
-            Text(
-                text = "CS",
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Medium,
-                fontSize = 18.sp
+            Image(
+                painter = painterResource(R.drawable.revia_mark),
+                contentDescription = null,
+                modifier = Modifier.size(34.dp)
             )
         }
         Text(
