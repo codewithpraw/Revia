@@ -1,7 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.kapt")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -35,10 +36,6 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
-
     sourceSets["main"].kotlin.srcDirs("src/main/kotlin")
 }
 
@@ -61,13 +58,18 @@ dependencies {
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // On-device generation via Gemini Nano / AICore, where the device supports it.
+    // The Prompt API is used rather than the summarization API because our input is
+    // short UI fragments, not the 400+ characters of prose summarization requires.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 

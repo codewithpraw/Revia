@@ -24,8 +24,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.revia.data.db.ReviaDatabase
 import com.revia.R
 import com.revia.data.preferences.UserPreferences
+import com.revia.data.summary.OnDeviceSummarizer
 import com.revia.ui.theme.LogoTile
 import com.revia.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -76,6 +80,44 @@ fun SettingsScreen() {
             checked = autoDismissEnabled,
             onCheckedChange = { checked -> scope.launch { preferences.setAutoDismissEnabled(checked) } }
         )
+
+        SettingsSectionLabel("On-device AI")
+        val nanoStatus by produceState(initialValue = "checking…") {
+            value = OnDeviceSummarizer().status()
+        }
+        Text(
+            text = "Gemini Nano: $nanoStatus",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        var nanoAction by remember { mutableStateOf<String?>(null) }
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    val s = OnDeviceSummarizer()
+                    nanoAction = "starting…"
+                    val outcome = s.download { nanoAction = it }
+                    nanoAction = "status: $outcome — running test…"
+                    val result = s.summarize(
+                        appName = "Notes",
+                        screenText = "XP leaderboard sync returns stale ranks after 5pm. Cron runs 4:55pm, cache invalidates before write completes.",
+                        lastNotification = "WhatsApp: Team Group - demo at 4?"
+                    )
+                    nanoAction = result?.let { "OUTPUT: $it" } ?: "inference returned nothing"
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Download model and run test")
+        }
+        nanoAction?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
 
         SettingsSectionLabel("Data")
         OutlinedButton(
@@ -180,3 +222,4 @@ private fun SettingsToggleRow(
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
+
