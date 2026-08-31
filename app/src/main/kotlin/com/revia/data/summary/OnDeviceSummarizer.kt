@@ -19,6 +19,22 @@ private const val TAG = "ReviaOnDevice"
  */
 class OnDeviceSummarizer {
 
+    companion object {
+        private const val HISTORY = 5
+        private val outcomes = ArrayDeque<String>()
+
+        /** Recent on-device attempts, newest first. Surfaced in Settings while testing. */
+        val lastOutcome: String
+            get() = synchronized(outcomes) {
+                if (outcomes.isEmpty()) "not attempted yet" else outcomes.joinToString(" | ")
+            }
+
+        internal fun record(app: String, outcome: String) = synchronized(outcomes) {
+            outcomes.addFirst("$app=$outcome")
+            while (outcomes.size > HISTORY) outcomes.removeLast()
+        }
+    }
+
     suspend fun status(): String = withContext(Dispatchers.IO) {
         runCatching { describe(Generation.getClient().checkStatus()) }
             .getOrElse { "error: ${it.javaClass.simpleName}: ${it.message}" }
@@ -37,11 +53,15 @@ class OnDeviceSummarizer {
         screenText: String?,
         lastNotification: String?
     ): String? = withContext(Dispatchers.IO) {
-        if (screenText.isNullOrBlank() && lastNotification.isNullOrBlank()) return@withContext null
+        if (screenText.isNullOrBlank() && lastNotification.isNullOrBlank()) {
+            record(appName, "no-text")
+            return@withContext null
+        }
         runCatching {
             val model = Generation.getClient()
-            if (model.checkStatus() != FeatureStatus.AVAILABLE) {
-                Log.d(TAG, "on-device model not available")
+            val st = model.checkStatus()
+            if (st != FeatureStatus.AVAILABLE) {
+                record(appName, describe(st))
                 return@runCatching null
             }
             val response = model.generateContent(
@@ -50,26 +70,43 @@ class OnDeviceSummarizer {
                     candidateCount = 1
                 }
             )
-            response.candidates.firstOrNull()?.text?.trim()?.takeIf { it.isNotBlank() }
+            clean(response.candidates.firstOrNull()?.text)
+                .also { record(appName, if (it == null) "empty" else "OK") }
         }.getOrElse {
+            record(appName, "${it.javaClass.simpleName}:${it.message?.take(60)}")
             Log.w(TAG, "on-device generation failed", it)
             null
         }
     }
 
+    // Nano follows an example far more reliably than it follows instructions,
+    // hence the worked example rather than a longer list of rules.
     private fun buildPrompt(appName: String, screenText: String?, notification: String?): String =
         """
-        Someone was using an app and got interrupted. From the fragments below,
-        write ONE sentence starting with "You were" that would help them pick up
-        where they left off.
+        Rewrite what someone was doing before an interruption, as one short sentence.
 
-        Rules: at most 18 words. Describe the task, not the app's buttons. Use only
-        what is given; invent nothing. Output the sentence alone.
+        Example
+        App: Gmail
+        On screen: Re: Q3 budget · Draft saved · To: priya@
+        Answer: You were drafting a reply to Priya about the Q3 budget.
+
+        Now do the same. Start with "You were". No bullet points. Under 18 words.
+        Use only the given text.
 
         App: $appName
         On screen: ${screenText ?: "(nothing captured)"}
         Interrupted by: ${notification ?: "(unknown)"}
+        Answer:
         """.trimIndent()
+
+    /** Nano tends to prefix a bullet and sometimes echoes the "Answer:" label. */
+    private fun clean(raw: String?): String? {
+        var text = raw?.trim().orEmpty()
+        text = text.removePrefix("Answer:").trim()
+        text = text.trimStart('*', '-', '\u2022', ' ')
+        text = text.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        return text.takeIf { it.isNotBlank() }
+    }
 
     private fun describe(code: Int): String = when (code) {
         FeatureStatus.AVAILABLE -> "available"

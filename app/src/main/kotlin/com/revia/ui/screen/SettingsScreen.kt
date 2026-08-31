@@ -91,25 +91,24 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
+        Text(
+            text = "Last capture attempt: ${OnDeviceSummarizer.lastOutcome}",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
         var nanoAction by remember { mutableStateOf<String?>(null) }
         OutlinedButton(
             onClick = {
                 scope.launch {
                     val s = OnDeviceSummarizer()
                     nanoAction = "starting…"
-                    val outcome = s.download { nanoAction = it }
-                    nanoAction = "status: $outcome — running test…"
-                    val result = s.summarize(
-                        appName = "Notes",
-                        screenText = "XP leaderboard sync returns stale ranks after 5pm. Cron runs 4:55pm, cache invalidates before write completes.",
-                        lastNotification = "WhatsApp: Team Group - demo at 4?"
-                    )
-                    nanoAction = result?.let { "OUTPUT: $it" } ?: "inference returned nothing"
+                    nanoAction = s.download { nanoAction = it }
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Download model and run test")
+            Text("Download on-device model")
         }
         nanoAction?.let {
             Text(

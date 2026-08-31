@@ -4,6 +4,7 @@ import com.revia.data.api.ReviaApi
 import com.revia.data.api.InterruptionEvent
 import com.revia.data.db.Interruption
 import com.revia.data.db.InterruptionDao
+import com.revia.data.summary.OnDeviceSummarizer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
@@ -13,12 +14,36 @@ import java.util.TimeZone
 
 private const val SUMMARY_TIMEOUT_MILLIS = 10_000L
 
+// Inference normally takes a few seconds; this only guards against it never
+// returning, which would stall the capture and lose the interruption entirely.
+private const val ON_DEVICE_TIMEOUT_MILLIS = 20_000L
+
 class InterruptionRepository(
     private val dao: InterruptionDao,
-    private val api: ReviaApi
+    private val api: ReviaApi,
+    private val onDevice: OnDeviceSummarizer = OnDeviceSummarizer()
 ) {
 
     fun observeRecent(limit: Int = 20): Flow<List<Interruption>> = dao.observeRecent(limit)
+
+    /**
+     * Upgrades a template summary using the on-device model. Must be called while the
+     * app is in the foreground; AICore blocks background inference.
+     */
+    suspend fun enrich(interruption: Interruption): Interruption {
+        if (interruption.context.isBlank()) return interruption
+        val better = withTimeoutOrNull(ON_DEVICE_TIMEOUT_MILLIS) {
+            onDevice.summarize(
+                appName = interruption.appName,
+                screenText = interruption.context,
+                lastNotification = null
+            )
+        } ?: return interruption
+
+        val updated = interruption.copy(summary = better)
+        dao.update(updated)
+        return updated
+    }
 
     suspend fun deleteById(id: Int) = dao.deleteById(id)
 
@@ -31,6 +56,12 @@ class InterruptionRepository(
         lastNotification: String?
     ): Interruption {
         val timestamp = System.currentTimeMillis()
+        // On-device first: nothing leaves the phone, no cost, no network needed.
+        // The server is the fallback for devices without Gemini Nano, and the
+        // template is the last resort when neither is reachable.
+        // Gemini Nano refuses to run from a background service (ErrorCode 30), and
+        // capture happens in one. The summary is upgraded on-device later, when the
+        // card is shown and the app is in the foreground - see [enrich].
         val summary = fetchSummary(appName, onScreenText, lastNotification, timestamp)
             ?: templateSummary(appName, onScreenText)
 

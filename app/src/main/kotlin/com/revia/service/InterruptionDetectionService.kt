@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
 private const val CHANNEL_ID = "revia_detection"
 private const val NOTIFICATION_ID = 1
 private const val POLL_INTERVAL_MILLIS = 1000L
+private const val QUERY_OVERLAP_MILLIS = 10_000L
 
 /**
  * Watches foreground app changes. Captures context when the user leaves an app,
@@ -38,7 +39,8 @@ class InterruptionDetectionService : Service() {
     private var pollJob: Job? = null
 
     private var currentApp: String? = null
-    private var lastQueryTime = System.currentTimeMillis()
+    /** Timestamp of the newest event acted on, not wall clock - see [latestForegroundApp]. */
+    private var lastEventTime = System.currentTimeMillis()
     private val awaitingReturn = ConcurrentHashMap<String, Interruption>()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -57,20 +59,29 @@ class InterruptionDetectionService : Service() {
         }
     }
 
-    /** Reads only events since the last poll, so a stale window can't re-report an old app. */
+    /**
+     * UsageStatsManager delivers events in batches, often a few seconds late. Advancing
+     * the query window by wall clock therefore drops events that arrive after their
+     * window has passed, so the window is anchored to the last event actually seen and
+     * re-read with an overlap; events at or before [lastEventTime] are ignored.
+     */
     private fun latestForegroundApp(usageStats: UsageStatsManager): String? {
         val now = System.currentTimeMillis()
-        val events = usageStats.queryEvents(lastQueryTime, now)
-        lastQueryTime = now
+        val events = usageStats.queryEvents(lastEventTime - QUERY_OVERLAP_MILLIS, now)
 
         val event = UsageEvents.Event()
         var latest: String? = null
+        var latestTime = lastEventTime
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED &&
+                event.timeStamp > lastEventTime
+            ) {
                 latest = event.packageName
+                latestTime = maxOf(latestTime, event.timeStamp)
             }
         }
+        lastEventTime = latestTime
         return latest?.takeIf { it != currentApp }
     }
 
