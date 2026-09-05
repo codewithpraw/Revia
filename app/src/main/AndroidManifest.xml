@@ -45,6 +45,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.overlay.ResumptionCardActivity"
+            android:theme="@style/Theme.Revia.Card"
+            android:excludeFromRecents="true"
+            android:taskAffinity=".resumption"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
         <service
             android:name=".service.InterruptionDetectionService"
             android:foregroundServiceType="specialUse"

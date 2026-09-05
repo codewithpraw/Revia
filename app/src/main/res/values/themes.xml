@@ -1,3 +1,13 @@
 <resources>
     <style name="Theme.Revia" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Floating card over another app: no dimming, no chrome, no animation. -->
+    <style name="Theme.Revia.Card" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
 </resources>
