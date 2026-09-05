@@ -40,6 +40,7 @@ import com.revia.data.db.ReviaDatabase
 import com.revia.R
 import com.revia.data.preferences.UserPreferences
 import com.revia.data.summary.OnDeviceSummarizer
+import com.revia.util.PermissionUtils
 import com.revia.ui.theme.LogoTile
 import com.revia.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -80,6 +81,23 @@ fun SettingsScreen() {
             checked = autoDismissEnabled,
             onCheckedChange = { checked -> scope.launch { preferences.setAutoDismissEnabled(checked) } }
         )
+
+        SettingsSectionLabel("Overlay")
+        val canOverlay = PermissionUtils.canDrawOverlays(context)
+        Text(
+            text = if (canOverlay) "Cards appear over other apps"
+                   else "Cards only appear inside Revia",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        if (!canOverlay) {
+            OutlinedButton(
+                onClick = { context.startActivity(PermissionUtils.overlaySettingsIntent(context)) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Allow drawing over other apps")
+            }
+        }
 
         SettingsSectionLabel("On-device AI")
         val nanoStatus by produceState(initialValue = "checking…") {

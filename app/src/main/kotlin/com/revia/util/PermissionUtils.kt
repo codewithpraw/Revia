@@ -3,6 +3,7 @@ package com.revia.util
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Process
 import android.provider.Settings
 import android.text.TextUtils
@@ -46,6 +47,13 @@ object PermissionUtils {
         hasUsageStatsPermission(context) &&
             isNotificationListenerEnabled(context) &&
             isAccessibilityServiceEnabled(context, ContentAccessibilityService::class.java.name)
+
+    fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
+
+    fun overlaySettingsIntent(context: Context): Intent = Intent(
+        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+        Uri.parse("package:${context.packageName}")
+    )
 
     fun usageAccessSettingsIntent(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
 

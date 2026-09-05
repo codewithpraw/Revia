@@ -15,6 +15,10 @@ import com.revia.R
 import com.revia.data.ServiceLocator
 import com.revia.data.db.Interruption
 import com.revia.util.AppInfo
+import com.revia.data.preferences.UserPreferences
+import com.revia.ui.overlay.ResumptionOverlay
+import com.revia.util.Constants
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -92,7 +96,49 @@ class InterruptionDetectionService : Service() {
         if (leftApp != null && AppInfo.isTrackable(applicationContext, leftApp)) {
             captureContextFor(leftApp)
         }
-        awaitingReturn.remove(newApp)?.let { ServiceLocator.showCard(it) }
+        awaitingReturn.remove(newApp)?.let { surfaceCard(it, newApp) }
+    }
+
+    /**
+     * The overlay is the point of the app - the card appears over whatever the user
+     * came back to. It still goes to [ServiceLocator] so Revia's own Home screen shows
+     * it too, and so it is there if the overlay permission was never granted.
+     */
+    private fun surfaceCard(interruption: Interruption, returnedTo: String) {
+        ServiceLocator.showCard(interruption)
+        if (!ResumptionOverlay.canShow(applicationContext)) return
+
+        scope.launch {
+            val preferences = UserPreferences(applicationContext)
+            if (!preferences.cardsEnabled.first()) return@launch
+            val themeMode = preferences.themeMode.first()
+            val autoDismiss = Constants.AUTO_DISMISS_MILLIS
+                .takeIf { preferences.autoDismissEnabled.first() }
+
+            ResumptionOverlay.show(
+                context = applicationContext,
+                interruption = interruption,
+                themeMode = themeMode,
+                autoDismissMillis = autoDismiss,
+                onJumpBackIn = { launchApp(returnedTo) }
+            )
+
+            // The card is up immediately with the placeholder text. Inference is
+            // attempted after, in case an attached overlay lifts the process out of
+            // "background"; if it does not, the placeholder simply stands.
+            val repository = ServiceLocator.repository(applicationContext)
+            runCatching { repository.enrich(interruption) }
+                .getOrNull()
+                ?.takeIf { it.summary != interruption.summary }
+                ?.let { ResumptionOverlay.update(it) }
+        }
+    }
+
+    private fun launchApp(packageName: String) {
+        packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(intent) }
+        }
     }
 
     private fun captureContextFor(packageName: String) {
