@@ -25,7 +25,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val repository = ServiceLocator.repository(getApplication())
             val better = repository.enrich(interruption)
-            if (better.summary != interruption.summary) {
+            // Inference can outlast the auto-dismiss, and a dismissed card must not
+            // reappear - only update the one still on screen.
+            if (better.summary != interruption.summary &&
+                ServiceLocator.pendingCard.value?.id == interruption.id
+            ) {
                 ServiceLocator.showCard(better)
             }
         }

@@ -42,6 +42,12 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 
     val card = pendingCard?.takeIf { cardsEnabled }
 
+    // The summary is generated here rather than at capture time: AICore refuses
+    // inference for a background app, and the capture ran in a background service.
+    LaunchedEffect(card?.id) {
+        card?.let { viewModel.enrichCard(it) }
+    }
+
     LaunchedEffect(card, autoDismissEnabled) {
         if (card != null && autoDismissEnabled) {
             delay(Constants.AUTO_DISMISS_MILLIS)

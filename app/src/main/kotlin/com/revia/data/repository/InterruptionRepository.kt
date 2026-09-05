@@ -27,18 +27,27 @@ class InterruptionRepository(
     fun observeRecent(limit: Int = 20): Flow<List<Interruption>> = dao.observeRecent(limit)
 
     /**
-     * Upgrades a template summary using the on-device model. Must be called while the
-     * app is in the foreground; AICore blocks background inference.
+     * Replaces the placeholder summary with a real one. Call only while the app is in
+     * the foreground: AICore blocks background inference, and capture runs in a service.
+     *
+     * On-device first (private, free, offline); the server is the fallback for devices
+     * without Gemini Nano; the stored template stands if neither answers.
      */
     suspend fun enrich(interruption: Interruption): Interruption {
         if (interruption.context.isBlank()) return interruption
+
         val better = withTimeoutOrNull(ON_DEVICE_TIMEOUT_MILLIS) {
             onDevice.summarize(
                 appName = interruption.appName,
                 screenText = interruption.context,
                 lastNotification = null
             )
-        } ?: return interruption
+        } ?: fetchSummary(
+            appName = interruption.appName,
+            onScreenText = interruption.context,
+            lastNotification = null,
+            timestamp = interruption.timestamp
+        ) ?: return interruption
 
         val updated = interruption.copy(summary = better)
         dao.update(updated)
@@ -56,14 +65,11 @@ class InterruptionRepository(
         lastNotification: String?
     ): Interruption {
         val timestamp = System.currentTimeMillis()
-        // On-device first: nothing leaves the phone, no cost, no network needed.
-        // The server is the fallback for devices without Gemini Nano, and the
-        // template is the last resort when neither is reachable.
-        // Gemini Nano refuses to run from a background service (ErrorCode 30), and
-        // capture happens in one. The summary is upgraded on-device later, when the
-        // card is shown and the app is in the foreground - see [enrich].
-        val summary = fetchSummary(appName, onScreenText, lastNotification, timestamp)
-            ?: templateSummary(appName, onScreenText)
+        // Deliberately cheap. The card has to be ready before the user returns, which
+        // can be seconds, so nothing slow belongs here - neither the network nor Gemini
+        // Nano, which refuses to run from a background service anyway. The real summary
+        // is written later by [enrich], once the app is in the foreground.
+        val summary = templateSummary(appName, onScreenText)
 
         val interruption = Interruption(
             appName = appName,
