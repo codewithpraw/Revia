@@ -11,11 +11,16 @@ object AppInfo {
         pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
     }.getOrDefault(packageName)
 
-    /** Launcher, system UI, and Revia itself are transitions, not interruptions. */
+    /**
+     * Launcher, system UI, and Revia itself are transitions, not interruptions. Payment
+     * apps and anything the user switched off are refused by [AppFilter], so a blocked
+     * app never becomes an interruption in the first place.
+     */
     fun isTrackable(context: Context, packageName: String): Boolean {
         if (packageName == context.packageName) return false
         if (packageName == "com.android.systemui") return false
-        return packageName != launcherPackage(context)
+        if (packageName == launcherPackage(context)) return false
+        return AppFilter.isObservable(context, packageName)
     }
 
     private fun launcherPackage(context: Context): String? = runCatching {

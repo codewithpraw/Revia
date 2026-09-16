@@ -23,6 +23,12 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- Identifies payment apps so they can be walled off. Without this the
+             query returns nothing on Android 11+ and the wall silently opens. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
     </queries>
 
     <application

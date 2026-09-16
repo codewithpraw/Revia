@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.revia.data.preferences.UserPreferences
 import com.revia.service.InterruptionDetectionService
+import com.revia.ui.screen.AppsScreen
 import com.revia.ui.screen.HistoryScreen
 import com.revia.ui.screen.MainScreen
 import com.revia.ui.screen.OnboardingScreen
@@ -106,7 +107,10 @@ private fun ReviaApp() {
             }
             composable(Constants.Routes.MAIN) { MainScreen() }
             composable(Constants.Routes.HISTORY) { HistoryScreen() }
-            composable(Constants.Routes.SETTINGS) { SettingsScreen() }
+            composable(Constants.Routes.SETTINGS) {
+                SettingsScreen(onOpenApps = { navController.navigate(Constants.Routes.APPS) })
+            }
+            composable(Constants.Routes.APPS) { AppsScreen() }
         }
     }
 }

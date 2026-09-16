@@ -3,6 +3,14 @@ package com.revia.service
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.revia.data.preferences.UserPreferences
+import com.revia.util.AppFilter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 private const val MAX_TRACKED_APPS = 32
@@ -31,12 +39,37 @@ class ContentAccessibilityService : AccessibilityService() {
          * interruption can never be described with text from an earlier visit.
          */
         fun consumeTextFor(packageName: String): String? = textByPackage.remove(packageName)
+
+        /** Drops anything already captured, used when the user narrows what may be read. */
+        internal fun forgetAll() = textByPackage.clear()
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var lastHandledAt = 0L
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        // Keeping the exclusion list in memory means the hot path never touches DataStore.
+        scope.launch {
+            UserPreferences(applicationContext).excludedApps.collectLatest { excluded ->
+                AppFilter.setUserExcluded(excluded)
+                forgetAll()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
+
+        // The wall. A payment or banking app is never read, and neither is an app the
+        // user switched off. Checked before the screen is touched rather than filtered
+        // afterwards, so sensitive text never enters the process at all.
+        if (!AppFilter.isObservable(this, packageName)) return
 
         // Window changes are rare and mark a screen the user actually moved to, so
         // they always get a look. Content changes arrive in bursts and are throttled,

@@ -46,7 +46,7 @@ import com.revia.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenApps: () -> Unit = {}) {
     val context = LocalContext.current
     val preferences = remember { UserPreferences(context) }
     val scope = rememberCoroutineScope()
@@ -80,6 +80,17 @@ fun SettingsScreen() {
             title = "Auto-dismiss after 10 seconds",
             checked = autoDismissEnabled,
             onCheckedChange = { checked -> scope.launch { preferences.setAutoDismissEnabled(checked) } }
+        )
+
+        SettingsSectionLabel("Privacy")
+        OutlinedButton(onClick = onOpenApps, modifier = Modifier.fillMaxWidth()) {
+            Text("Choose which apps Revia watches")
+        }
+        Text(
+            text = "Payment and banking apps are always excluded and cannot be turned on.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
         )
 
         SettingsSectionLabel("Overlay")

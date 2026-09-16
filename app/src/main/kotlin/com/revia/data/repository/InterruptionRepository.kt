@@ -10,6 +10,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 // returning, which would stall the capture and lose the interruption entirely.
 private const val ON_DEVICE_TIMEOUT_MILLIS = 20_000L
 
+// Coming back to an app hours later is not resuming a task, it is starting a new one,
+// so a pending card older than this is left in history rather than shown.
+private const val MAX_PENDING_AGE_MILLIS = 2 * 60 * 60 * 1000L
+
 class InterruptionRepository(
     private val dao: InterruptionDao,
     private val onDevice: OnDeviceSummarizer = OnDeviceSummarizer()
@@ -39,6 +43,18 @@ class InterruptionRepository(
         val updated = interruption.copy(summary = better)
         dao.update(updated)
         return updated
+    }
+
+    /**
+     * The interruption waiting for the user's return to [packageName], if one is recent
+     * enough to still be worth showing. Kept in the database rather than in memory so a
+     * pending card is not lost when OEM power management kills the detection service.
+     */
+    suspend fun takePending(packageName: String): Interruption? {
+        val notBefore = System.currentTimeMillis() - MAX_PENDING_AGE_MILLIS
+        val pending = dao.findPendingFor(packageName, notBefore) ?: return null
+        dao.markSurfaced(pending.id)
+        return pending
     }
 
     suspend fun deleteById(id: Int) = dao.deleteById(id)

@@ -18,8 +18,20 @@ interface InterruptionDao {
     @Query("SELECT * FROM interruptions ORDER BY timestamp DESC LIMIT :limit")
     fun observeRecent(limit: Int = 20): Flow<List<Interruption>>
 
-    @Query("SELECT * FROM interruptions WHERE appName = :appName ORDER BY timestamp DESC LIMIT 1")
-    suspend fun getLatestForApp(appName: String): Interruption?
+    /**
+     * The interruption waiting to be shown for [packageName], if there is one recent
+     * enough to still be worth surfacing. Replaces an in-memory map so a pending card
+     * survives the detection service being killed.
+     */
+    @Query(
+        "SELECT * FROM interruptions " +
+            "WHERE packageName = :packageName AND surfaced = 0 AND timestamp >= :notBefore " +
+            "ORDER BY timestamp DESC LIMIT 1"
+    )
+    suspend fun findPendingFor(packageName: String, notBefore: Long): Interruption?
+
+    @Query("UPDATE interruptions SET surfaced = 1 WHERE id = :id")
+    suspend fun markSurfaced(id: Int)
 
     @Query("DELETE FROM interruptions WHERE id = :id")
     suspend fun deleteById(id: Int)

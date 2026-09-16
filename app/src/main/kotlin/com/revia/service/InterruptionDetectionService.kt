@@ -26,7 +26,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
 
 private const val CHANNEL_ID = "revia_detection"
 private const val NOTIFICATION_ID = 1
@@ -45,7 +44,6 @@ class InterruptionDetectionService : Service() {
     private var currentApp: String? = null
     /** Timestamp of the newest event acted on, not wall clock - see [latestForegroundApp]. */
     private var lastEventTime = System.currentTimeMillis()
-    private val awaitingReturn = ConcurrentHashMap<String, Interruption>()
 
      override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -96,7 +94,14 @@ class InterruptionDetectionService : Service() {
         if (leftApp != null && AppInfo.isTrackable(applicationContext, leftApp)) {
             captureContextFor(leftApp)
         }
-        awaitingReturn.remove(newApp)?.let { surfaceCard(it, newApp) }
+        surfacePendingFor(newApp)
+    }
+
+    private fun surfacePendingFor(packageName: String) {
+        scope.launch {
+            val repository = ServiceLocator.repository(applicationContext)
+            repository.takePending(packageName)?.let { surfaceCard(it, packageName) }
+        }
     }
 
     /**
@@ -117,13 +122,12 @@ class InterruptionDetectionService : Service() {
     private fun captureContextFor(packageName: String) {
         scope.launch {
             val repository = ServiceLocator.repository(applicationContext)
-            val interruption = repository.captureInterruption(
+            repository.captureInterruption(
                 appName = AppInfo.label(applicationContext, packageName),
                 packageName = packageName,
                 onScreenText = ContentAccessibilityService.consumeTextFor(packageName),
                 lastNotification = AppNotificationListenerService.lastNotificationText
             )
-            awaitingReturn[packageName] = interruption
         }
     }
 

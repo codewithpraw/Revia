@@ -9,5 +9,6 @@ object Constants {
         const val MAIN = "main"
         const val HISTORY = "history"
         const val SETTINGS = "settings"
+        const val APPS = "apps"
     }
 }
