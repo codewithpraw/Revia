@@ -10,5 +10,6 @@ object Constants {
         const val HISTORY = "history"
         const val SETTINGS = "settings"
         const val APPS = "apps"
+        const val ONBOARDING_APPS = "onboarding_apps"
     }
 }

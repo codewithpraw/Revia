@@ -88,7 +88,9 @@ private fun ReviaApp() {
 
     Scaffold(
         bottomBar = {
-            if (currentRoute != Constants.Routes.ONBOARDING) {
+            if (currentRoute != Constants.Routes.ONBOARDING &&
+                currentRoute != Constants.Routes.ONBOARDING_APPS
+            ) {
                 BottomBar(navController, currentRoute)
             }
         }
@@ -100,6 +102,13 @@ private fun ReviaApp() {
         ) {
             composable(Constants.Routes.ONBOARDING) {
                 OnboardingScreen(onFinished = {
+                    navController.navigate(Constants.Routes.ONBOARDING_APPS)
+                })
+            }
+            // Picking apps is part of setup, not a settings page to find later: Revia
+            // reads nothing until this step is done.
+            composable(Constants.Routes.ONBOARDING_APPS) {
+                AppsScreen(onFinished = {
                     navController.navigate(Constants.Routes.MAIN) {
                         popUpTo(Constants.Routes.ONBOARDING) { inclusive = true }
                     }

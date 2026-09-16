@@ -41,6 +41,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     val autoDismissEnabled by preferences.autoDismissEnabled.collectAsStateWithLifecycle(initialValue = true)
 
     val card = pendingCard?.takeIf { cardsEnabled }
+    val observed by preferences.observedApps.collectAsStateWithLifecycle(initialValue = emptySet())
 
     // The summary is generated here rather than at capture time: AICore refuses
     // inference for a background app, and the capture ran in a background service.
@@ -61,7 +62,10 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             .background(MaterialTheme.colorScheme.background)
     ) {
         if (card == null) {
-            WaitingState(modifier = Modifier.align(Alignment.Center))
+            WaitingState(
+                hasApps = observed.isNotEmpty(),
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
 
         AnimatedVisibility(
@@ -83,7 +87,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 }
 
 @Composable
-private fun WaitingState(modifier: Modifier = Modifier) {
+private fun WaitingState(hasApps: Boolean, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(32.dp)
@@ -95,12 +99,13 @@ private fun WaitingState(modifier: Modifier = Modifier) {
             modifier = Modifier.size(44.dp)
         )
         Text(
-            text = "Watching for interruptions",
+            text = if (hasApps) "Watching for interruptions" else "No apps selected yet",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 16.dp)
         )
         Text(
-            text = "Switch to another app and come back — your card will appear here.",
+            text = if (hasApps) "Switch to another app and come back — your card will appear here."
+                   else "Revia reads nothing until you choose apps. Settings › Choose which apps Revia watches.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

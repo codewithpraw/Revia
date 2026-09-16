@@ -16,15 +16,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,66 +51,114 @@ private data class ObservableApp(
     val sensitive: Boolean
 )
 
+/**
+ * Picks the apps Revia is allowed to read. Nothing is read until chosen here, which is
+ * both the privacy guarantee and the reason the service stays cheap - unpicked apps are
+ * rejected on a set lookup before the screen is ever walked.
+ *
+ * [onFinished] is supplied during onboarding, where this is a setup step rather than a
+ * settings page.
+ */
 @Composable
-fun AppsScreen() {
+fun AppsScreen(onFinished: (() -> Unit)? = null) {
     val context = LocalContext.current
     val preferences = remember { UserPreferences(context) }
     val scope = rememberCoroutineScope()
 
-    val excluded by preferences.excludedApps.collectAsStateWithLifecycle(initialValue = emptySet())
+    val observed by preferences.observedApps.collectAsStateWithLifecycle(initialValue = emptySet())
+    var query by remember { mutableStateOf("") }
 
-    // Resolving labels for every installed app is disk work; keep it off the main thread.
+    // Resolving a label for every installed app is disk work; keep it off the main thread.
     val apps by produceState(initialValue = emptyList<ObservableApp>()) {
         value = withContext(Dispatchers.IO) { loadInstalledApps(context) }
     }
 
-    val protected = apps.filter { it.sensitive }
-    val choosable = apps.filterNot { it.sensitive }
+    val matching = apps.filter { it.label.contains(query, ignoreCase = true) }
+    val protectedApps = matching.filter { it.sensitive }
+    val choosable = matching.filterNot { it.sensitive }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp)) {
-            Text("Apps Revia watches", style = MaterialTheme.typography.titleMedium)
+        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp)) {
             Text(
-                text = if (apps.isEmpty()) "Loading your apps…"
-                       else "${choosable.size - excluded.count { pkg -> choosable.any { it.packageName == pkg } }} " +
-                           "of ${choosable.size} on · ${protected.size} protected",
+                text = if (onFinished != null) "Which apps should Revia watch?"
+                       else "Apps Revia watches",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = when {
+                    apps.isEmpty() -> "Loading your apps…"
+                    observed.isEmpty() -> "Nothing selected — Revia reads nothing yet"
+                    else -> "${observed.size} selected"
+                },
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text("Search apps") },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp)
             )
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            if (protected.isNotEmpty()) {
-                item {
-                    SectionHeader(
-                        title = "Protected",
-                        subtitle = "Payment and banking apps. Revia never reads these, " +
-                            "and this cannot be switched on."
-                    )
-                }
-                items(protected, key = { it.packageName }) { app ->
-                    AppRow(app = app, excluded = false, locked = true, onToggle = {})
-                }
-            }
-
+        LazyColumn(modifier = Modifier.weight(1f)) {
             item {
                 SectionHeader(
                     title = "Your apps",
-                    subtitle = "Turn one off and Revia stops reading it entirely."
+                    subtitle = "Revia reads only what you switch on here."
                 )
             }
             items(choosable, key = { it.packageName }) { app ->
                 AppRow(
                     app = app,
-                    excluded = app.packageName in excluded,
+                    checked = app.packageName in observed,
                     locked = false,
                     onToggle = { on ->
-                        scope.launch { preferences.setAppExcluded(app.packageName, !on) }
+                        scope.launch { preferences.setAppObserved(app.packageName, on) }
                     }
+                )
+            }
+
+            if (protectedApps.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        title = "Protected",
+                        subtitle = "Payment and banking apps. Revia refuses to read these, " +
+                            "and they cannot be switched on."
+                    )
+                }
+                items(protectedApps, key = { it.packageName }) { app ->
+                    AppRow(app = app, checked = false, locked = true, onToggle = {})
+                }
+            }
+        }
+
+        onFinished?.let { finish ->
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                Button(
+                    onClick = finish,
+                    enabled = observed.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (observed.isEmpty()) "Pick at least one app" else "Start using Revia")
+                }
+                Text(
+                    text = "You can change this any time in Settings.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
             }
         }
@@ -114,7 +167,7 @@ fun AppsScreen() {
 
 @Composable
 private fun SectionHeader(title: String, subtitle: String) {
-    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp)) {
         Text(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelSmall,
@@ -132,7 +185,7 @@ private fun SectionHeader(title: String, subtitle: String) {
 @Composable
 private fun AppRow(
     app: ObservableApp,
-    excluded: Boolean,
+    checked: Boolean,
     locked: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
@@ -176,7 +229,7 @@ private fun AppRow(
                 modifier = Modifier.size(18.dp)
             )
         } else {
-            Switch(checked = !excluded, onCheckedChange = onToggle)
+            Switch(checked = checked, onCheckedChange = onToggle)
         }
     }
 }

@@ -31,22 +31,24 @@ object AppFilter {
 
     private val sensitiveCache = ConcurrentHashMap<String, Boolean>()
 
-    /** Packages the user has chosen not to observe. Mirrored from DataStore. */
+    /** Packages the user has opted in. Mirrored from DataStore to keep the hot path cheap. */
     @Volatile
-    private var userExcluded: Set<String> = emptySet()
+    private var observed: Set<String> = emptySet()
 
-    fun setUserExcluded(packages: Set<String>) {
-        userExcluded = packages
+    fun setObserved(packages: Set<String>) {
+        observed = packages
     }
 
-    fun isUserExcluded(packageName: String): Boolean = packageName in userExcluded
+    fun observedCount(): Int = observed.size
 
     /**
-     * True when Revia may read this app. Sensitive apps are refused regardless of
-     * settings; the user's own exclusions are honoured on top of that.
+     * True when Revia may read this app. Opt-in: an app is read only if the user picked
+     * it, and never if it handles money. Most apps fail this check on the first
+     * comparison, which is what keeps the accessibility service cheap - the view tree is
+     * only walked for apps the user actually cares about.
      */
     fun isObservable(context: Context, packageName: String): Boolean =
-        !isSensitive(context, packageName) && packageName !in userExcluded
+        packageName in observed && !isSensitive(context, packageName)
 
     /**
      * Payment or banking app. Established two ways: whether Android itself routes UPI

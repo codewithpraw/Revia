@@ -51,8 +51,8 @@ class ContentAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         // Keeping the exclusion list in memory means the hot path never touches DataStore.
         scope.launch {
-            UserPreferences(applicationContext).excludedApps.collectLatest { excluded ->
-                AppFilter.setUserExcluded(excluded)
+            UserPreferences(applicationContext).observedApps.collectLatest { observed ->
+                AppFilter.setObserved(observed)
                 forgetAll()
             }
         }

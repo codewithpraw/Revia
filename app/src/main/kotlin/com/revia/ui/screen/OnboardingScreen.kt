@@ -124,7 +124,7 @@ fun OnboardingScreen(
             enabled = state.usageStatsGranted,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Start using Revia")
+            Text("Next: choose your apps")
         }
         Text(
             text = if (state.allGranted) "Signals stay on your device"
