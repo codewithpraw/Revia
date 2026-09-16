@@ -47,7 +47,7 @@ class InterruptionDetectionService : Service() {
     private var lastEventTime = System.currentTimeMillis()
     private val awaitingReturn = ConcurrentHashMap<String, Interruption>()
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
         if (pollJob == null) startPolling()
         return START_STICKY

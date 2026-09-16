@@ -52,11 +52,13 @@ app switch detected  ─▶  capture screen text  ─▶  store (template summar
 Capture is deliberately cheap — it has to finish before the user comes back, which can be
 seconds. The actual sentence is written when the card appears.
 
-Summaries fall back in three tiers, so the app degrades instead of breaking:
+Summaries fall back in two tiers, so the app degrades instead of breaking:
 
 1. **Gemini Nano**, on-device — private, free, works offline
-2. **A backend** (`backend/`, FastAPI + Claude) — for devices without Nano
-3. **A template** — `You were in Notes — [captured text]`
+2. **A template** — `You were in Notes — [captured text]`
+
+There is deliberately no third, server-backed tier. Revia ships no networking code of its
+own — nothing it captures has anywhere to go.
 
 ## On-device AI
 
@@ -95,7 +97,6 @@ Or open the folder in Android Studio and run. `local.properties` is generated on
 | Build | AGP 8.5.0, KSP 2.1.0-1.0.29 |
 | Storage | Room 2.6.1, DataStore |
 | On-device AI | ML Kit GenAI Prompt 1.0.0-beta2 |
-| Optional backend | Retrofit 2.11.0 → FastAPI |
 
 On first run, open **Settings → On-device AI** and tap **Download on-device model** if it
 reports `downloadable`. The download takes a few minutes and is not instant.
@@ -119,11 +120,17 @@ losing it shouldn't lock you out of the app.
 - **Password fields are never captured** — nodes flagged `isPassword` are skipped.
 - **Captured text is consumed when read**, so it can't describe a later, unrelated interruption.
 - Data lives in the app's private database. Clear it any time from Settings.
-- With Gemini Nano available, **screen content never leaves the phone**.
+- **Screen content never leaves the phone.** Revia has no networking code and no server to
+  talk to; captured text goes to the on-device model or nowhere.
+- **The app does hold `INTERNET`, and it is worth being precise about why.** It is not
+  declared in Revia's manifest — it arrives through `com.google.mlkit:genai-prompt`, which
+  depends on Google's `transport-backend-cct`. ML Kit needs network access to download the
+  Gemini Nano model, and that library carries Google's own telemetry. That is a Google
+  dependency doing Google things, not a path for anything Revia captures.
 
 This is a hackathon prototype, and honest about it: the local database is not encrypted,
-`allowBackup` is still on, there is no retention limit, and using the optional backend does
-send captured text over the network. Those are the things to fix before anyone real uses it.
+`allowBackup` is still on, and there is no retention limit. Those are the things to fix
+before anyone real uses it.
 
 ## Project structure
 
@@ -132,7 +139,6 @@ app/src/main/kotlin/com/revia/
 ├── service/      detection (UsageStats), accessibility capture, notifications
 ├── data/
 │   ├── db/       Room entity, DAO, database
-│   ├── api/      Retrofit client for the optional backend
 │   ├── summary/  Gemini Nano via ML Kit Prompt API
 │   └── repository/
 ├── ui/
@@ -140,16 +146,14 @@ app/src/main/kotlin/com/revia/
 │   ├── overlay/  the card shown over other apps
 │   └── theme/
 └── viewmodel/
-
-backend/          optional FastAPI service — see backend/README.md
 ```
 
 ## Known limitations
 
 - **Summary quality follows what's on screen.** A Wikipedia article reads well; a camera
   viewfinder has almost nothing to work with, and the summary stays thin.
-- **Devices without AICore fall back** to the backend or the template. Gemini Nano is not on
-  every phone.
+- **Devices without AICore fall back** to the template summary. Gemini Nano is not on every
+  phone, and there is no server-side path by design.
 - **Aggressive OEM power management** (vivo, OPPO, Xiaomi) can kill the detection service. Set
   Revia to Unrestricted battery and lock it in Recents.
 - **vivo and OPPO suppress third-party logcat output**, which is why diagnostics surface in

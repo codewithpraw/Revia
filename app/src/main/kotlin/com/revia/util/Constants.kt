@@ -1,7 +1,6 @@
 package com.revia.util
 
 object Constants {
-    const val DEFAULT_BASE_URL = "http://10.0.2.2:8000/"
     const val AUTO_DISMISS_MILLIS = 10_000L
     const val PREFS_NAME = "revia_prefs"
 

@@ -15,20 +15,14 @@ private val Context.dataStore by preferencesDataStore(name = Constants.PREFS_NAM
 class UserPreferences(private val context: Context) {
 
     private object Keys {
-        val BASE_URL = stringPreferencesKey("base_url")
         val CARDS_ENABLED = booleanPreferencesKey("cards_enabled")
         val AUTO_DISMISS_ENABLED = booleanPreferencesKey("auto_dismiss_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
-    val baseUrl: Flow<String> = context.dataStore.data.map { it[Keys.BASE_URL] ?: Constants.DEFAULT_BASE_URL }
     val cardsEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CARDS_ENABLED] ?: true }
     val autoDismissEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_DISMISS_ENABLED] ?: true }
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.fromName(it[Keys.THEME_MODE]) }
-
-    suspend fun setBaseUrl(url: String) {
-        context.dataStore.edit { it[Keys.BASE_URL] = url }
-    }
 
     suspend fun setCardsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.CARDS_ENABLED] = enabled }
