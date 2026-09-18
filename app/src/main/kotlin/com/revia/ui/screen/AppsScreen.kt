@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.revia.data.preferences.UserPreferences
 import com.revia.util.AppFilter
 import com.revia.util.AppInfo
+import com.revia.util.AppTrust
 import com.revia.util.rememberAppIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,7 +49,7 @@ import kotlinx.coroutines.withContext
 private data class ObservableApp(
     val packageName: String,
     val label: String,
-    val sensitive: Boolean
+    val trust: AppTrust
 )
 
 /**
@@ -74,8 +75,9 @@ fun AppsScreen(onFinished: (() -> Unit)? = null) {
     }
 
     val matching = apps.filter { it.label.contains(query, ignoreCase = true) }
-    val protectedApps = matching.filter { it.sensitive }
-    val choosable = matching.filterNot { it.sensitive }
+    val choosable = matching.filter { it.trust == AppTrust.ORDINARY }
+    val financial = matching.filter { it.trust == AppTrust.LOOKS_FINANCIAL }
+    val protectedApps = matching.filter { it.trust == AppTrust.HANDLES_PAYMENTS }
 
     Column(
         modifier = Modifier
@@ -129,12 +131,32 @@ fun AppsScreen(onFinished: (() -> Unit)? = null) {
                 )
             }
 
+            if (financial.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        title = "Might handle money",
+                        subtitle = "These only read as financial by name, which is a guess " +
+                            "and can be wrong. Switch one on if you know better."
+                    )
+                }
+                items(financial, key = { it.packageName }) { app ->
+                    AppRow(
+                        app = app,
+                        checked = app.packageName in observed,
+                        locked = false,
+                        onToggle = { on ->
+                            scope.launch { preferences.setAppObserved(app.packageName, on) }
+                        }
+                    )
+                }
+            }
+
             if (protectedApps.isNotEmpty()) {
                 item {
                     SectionHeader(
                         title = "Protected",
-                        subtitle = "Payment and banking apps. Revia refuses to read these, " +
-                            "and they cannot be switched on."
+                        subtitle = "Android routes payments to these. Revia refuses to read " +
+                            "them, and they cannot be switched on."
                     )
                 }
                 items(protectedApps, key = { it.packageName }) { app ->
@@ -247,7 +269,7 @@ private fun loadInstalledApps(context: Context): List<ObservableApp> = runCatchi
             ObservableApp(
                 packageName = pkg,
                 label = AppInfo.label(context, pkg),
-                sensitive = AppFilter.isSensitive(context, pkg)
+                trust = AppFilter.trust(context, pkg)
             )
         }
         .sortedBy { it.label.lowercase() }

@@ -32,22 +32,49 @@ private const val NOTIFICATION_ID = 1
 private const val POLL_INTERVAL_MILLIS = 1000L
 private const val QUERY_OVERLAP_MILLIS = 10_000L
 
+// A dismissed card is not a resolved one. Someone still sitting in the app that pulled
+// them away this long later has not gone back to the task, so it is raised again.
+private const val RENAG_INTERVAL_MILLIS = 5 * 60 * 1000L
+
 /**
- * Watches foreground app changes. Captures context when the user leaves an app,
- * then surfaces the resulting card when they come back to it.
+ * Watches foreground app changes. Leaving a trackable app captures its on-screen
+ * context and immediately raises a card over wherever the user landed.
+ *
+ * That app becomes the chain's root and stays it. Hopping onward - Instagram to
+ * WhatsApp to somewhere else - extends one card's trail rather than raising a card per
+ * hop, so "Jump back in" always points at the task that was actually interrupted
+ * instead of the last thing touched. Only the root's screen is ever read; the apps
+ * passed through on the way are named and nothing more. Returning to the root ends
+ * the chain, however the user gets there.
  */
 class InterruptionDetectionService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var pollJob: Job? = null
+    private var nagJob: Job? = null
 
+    @Volatile
     private var currentApp: String? = null
+
+    /** The interrupted task. Non-null for as long as the user has not gone back to it. */
+    @Volatile
+    private var activeRoot: Interruption? = null
+
+    /**
+     * Apps entered since the root was left. Only ever touched from the poll loop, which
+     * is a single coroutine, so it needs no synchronisation of its own.
+     */
+    private val chainTrail = mutableListOf<String>()
+
     /** Timestamp of the newest event acted on, not wall clock - see [latestForegroundApp]. */
     private var lastEventTime = System.currentTimeMillis()
 
      override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
-        if (pollJob == null) startPolling()
+        if (pollJob == null) {
+            startPolling()
+            watchForDismissal()
+        }
         return START_STICKY
     }
 
@@ -88,46 +115,115 @@ class InterruptionDetectionService : Service() {
     }
 
     private fun onForegroundChanged(newApp: String) {
+        // The home screen, system UI, and Revia's own card are passages rather than
+        // places the user chose to be. Ignoring them outright also leaves currentApp
+        // meaning "the app the user is really in", which the re-nag checks against -
+        // and stops the card, being an Activity, from reading as a switch of its own.
+        if (AppInfo.isTransition(applicationContext, newApp)) return
+
         val leftApp = currentApp
         currentApp = newApp
 
-        if (leftApp != null && AppInfo.isTrackable(applicationContext, leftApp)) {
-            captureContextFor(leftApp)
-        }
-        surfacePendingFor(newApp)
-    }
+        val root = activeRoot
+        // Called unconditionally so the flag is spent on the switch it was set for,
+        // rather than surviving to be mistaken for a later one.
+        val answeredTheCard = ServiceLocator.consumeIntentionalReturn(newApp)
 
-    private fun surfacePendingFor(packageName: String) {
-        scope.launch {
-            val repository = ServiceLocator.repository(applicationContext)
-            repository.takePending(packageName)?.let { surfaceCard(it, packageName) }
+        if (answeredTheCard || newApp == root?.packageName) {
+            resolveChain()
+            return
+        }
+
+        if (root != null) {
+            // Still adrift from the same task. This hop is part of that detour, not a
+            // new interruption - it neither reads this app nor replaces the card.
+            chainTrail.add(newApp)
+            showChainCard()
+            return
+        }
+
+        if (leftApp != null && AppInfo.isTrackable(applicationContext, leftApp)) {
+            startChain(rootApp = leftApp, firstHop = newApp)
         }
     }
 
     /**
-     * Puts the card over whatever the user came back to. It also goes to
-     * [ServiceLocator] so Revia's own Home screen shows it, which is the only place
-     * it appears if the draw-over-apps permission was never granted.
+     * Capture, then immediately read the same row back and show it. Both run in one
+     * coroutine so the read can never race the write that produced it - a separate
+     * launch per step previously left surfacing free to run before capture finished.
      */
-    private fun surfaceCard(interruption: Interruption, returnedTo: String) {
-        ServiceLocator.showCard(interruption)
+    private fun startChain(rootApp: String, firstHop: String) {
+        scope.launch {
+            val repository = ServiceLocator.repository(applicationContext)
+            repository.captureInterruption(
+                appName = AppInfo.label(applicationContext, rootApp),
+                packageName = rootApp,
+                onScreenText = ContentAccessibilityService.consumeTextFor(rootApp),
+                lastNotification = AppNotificationListenerService.lastNotificationText
+            )
+            val captured = repository.takePending(rootApp) ?: return@launch
+
+            activeRoot = captured
+            chainTrail.clear()
+            chainTrail.add(firstHop)
+            showChainCard()
+        }
+    }
+
+    /** The task was resumed, so the detour is over and nothing more is owed for it. */
+    private fun resolveChain() {
+        nagJob?.cancel()
+        nagJob = null
+        activeRoot = null
+        chainTrail.clear()
+        ServiceLocator.setChainTrail(emptyList())
+        ServiceLocator.clearCard()
+    }
+
+    /**
+     * Puts the card over whatever app the user is in now. It also goes to
+     * [ServiceLocator] so Revia's own Home screen shows it, which is the only place it
+     * appears if the draw-over-apps permission was never granted. The card always
+     * describes the root, so "Jump back in" needs no target of its own - the activity
+     * reads it off the card.
+     */
+    private fun showChainCard() {
+        val root = activeRoot ?: return
+
+        ServiceLocator.setChainTrail(chainTrail.toList())
+        ServiceLocator.showCard(root)
         if (!PermissionUtils.canDrawOverlays(applicationContext)) return
 
         scope.launch {
             if (!UserPreferences(applicationContext).cardsEnabled.first()) return@launch
-            ResumptionCardActivity.show(applicationContext, returnedTo)
+            ResumptionCardActivity.show(applicationContext)
         }
     }
 
-    private fun captureContextFor(packageName: String) {
+    /**
+     * A card leaving the screen - dismissed, timed out, or jumped away from - arms the
+     * re-nag. Every route clears the card through [ServiceLocator], so watching that is
+     * enough to catch all of them. A resolved chain cancels the timer outright, so
+     * going back to the task is never followed by a nag about it.
+     */
+    private fun watchForDismissal() {
         scope.launch {
-            val repository = ServiceLocator.repository(applicationContext)
-            repository.captureInterruption(
-                appName = AppInfo.label(applicationContext, packageName),
-                packageName = packageName,
-                onScreenText = ContentAccessibilityService.consumeTextFor(packageName),
-                lastNotification = AppNotificationListenerService.lastNotificationText
-            )
+            ServiceLocator.pendingCard.collect { card ->
+                if (card == null) armRenag() else nagJob?.cancel()
+            }
+        }
+    }
+
+    private fun armRenag() {
+        if (activeRoot == null) return
+        val distractingApp = chainTrail.lastOrNull() ?: return
+
+        nagJob?.cancel()
+        nagJob = scope.launch {
+            delay(RENAG_INTERVAL_MILLIS)
+            // Still where they were when they waved the card away, so the task is still
+            // abandoned. Having moved on since means a hop already refreshed the card.
+            if (currentApp == distractingApp) showChainCard()
         }
     }
 

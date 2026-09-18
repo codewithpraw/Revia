@@ -87,7 +87,8 @@ fun SettingsScreen(onOpenApps: () -> Unit = {}) {
             Text("Choose which apps Revia watches")
         }
         Text(
-            text = "Payment and banking apps are always excluded and cannot be turned on.",
+            text = "Apps Android routes payments to are always excluded and cannot be " +
+                "turned on. Ones that merely sound financial are only flagged.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp)

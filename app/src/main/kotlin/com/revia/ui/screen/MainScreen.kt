@@ -25,9 +25,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.revia.data.ServiceLocator
 import com.revia.data.preferences.UserPreferences
 import com.revia.ui.screen.components.ResumptionCard
 import com.revia.util.Constants
+import com.revia.util.launchApp
 import com.revia.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
 
@@ -42,6 +44,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 
     val card = pendingCard?.takeIf { cardsEnabled }
     val observed by preferences.observedApps.collectAsStateWithLifecycle(initialValue = emptySet())
+    val trail by ServiceLocator.chainTrail.collectAsStateWithLifecycle()
 
     // The summary is generated here rather than at capture time: AICore refuses
     // inference for a background app, and the capture ran in a background service.
@@ -78,7 +81,12 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                 ResumptionCard(
                     interruption = it,
                     onDismiss = { viewModel.dismissCard() },
-                    onJumpBackIn = { viewModel.dismissCard() },
+                    onJumpBackIn = {
+                        ServiceLocator.noteIntentionalReturn(it.packageName)
+                        context.launchApp(it.packageName)
+                        viewModel.dismissCard()
+                    },
+                    trail = trail,
                     modifier = Modifier.padding(16.dp)
                 )
             }

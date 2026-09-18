@@ -18,17 +18,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.revia.data.db.Interruption
+import com.revia.util.AppInfo
 import com.revia.util.toRelativeTimeString
 
+/**
+ * [trail] is the apps entered since the interrupted task was left. A single entry is
+ * just "where you are now" and says nothing worth the space, so it only appears once
+ * the detour has actually wandered.
+ */
 @Composable
 fun ResumptionCard(
     interruption: Interruption,
     onDismiss: () -> Unit,
     onJumpBackIn: () -> Unit,
+    trail: List<String> = emptyList(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -44,7 +53,7 @@ fun ResumptionCard(
             ) {
                 Icon(Icons.Filled.History, contentDescription = null)
                 Text(
-                    text = "Welcome back",
+                    text = "You got distracted",
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .weight(1f),
@@ -57,9 +66,17 @@ fun ResumptionCard(
             }
             Text(
                 text = interruption.summary,
-                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = if (trail.size > 1) 4.dp else 12.dp),
                 style = MaterialTheme.typography.bodyMedium
             )
+            if (trail.size > 1) {
+                Text(
+                    text = "Since then: " +
+                        trail.joinToString(" → ") { AppInfo.label(context, it) },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
