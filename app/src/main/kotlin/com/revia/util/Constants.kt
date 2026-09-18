@@ -1,7 +1,7 @@
 package com.revia.util
 
 object Constants {
-    const val AUTO_DISMISS_MILLIS = 10_000L
+    const val AUTO_DISMISS_MILLIS = 5_000L
     const val PREFS_NAME = "revia_prefs"
 
     object Routes {

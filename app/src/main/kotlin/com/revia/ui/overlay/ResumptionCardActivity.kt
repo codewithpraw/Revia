@@ -72,8 +72,8 @@ class ResumptionCardActivity : ComponentActivity() {
             val trail by ServiceLocator.chainTrail.collectAsStateWithLifecycle()
             val autoDismissEnabled by preferences.autoDismissEnabled
                 .collectAsStateWithLifecycle(initialValue = true)
+            val enrichingId by ServiceLocator.enrichingId.collectAsStateWithLifecycle()
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
-            val enrichedIds = remember { mutableSetOf<Int>() }
 
             LaunchedEffect(Unit) {
                 themeMode = preferences.themeMode.first()
@@ -86,25 +86,18 @@ class ResumptionCardActivity : ComponentActivity() {
                 if (card == null) finish()
             }
 
-            // Foreground at last, so this is where the real summary gets written. Keyed on
-            // the id so neither a trail update nor the write this effect itself makes can
-            // send it round again.
+            // Foreground at last, so this is what lets the real summary be written. The
+            // work runs on the app scope, not here, so closing the card cannot cancel it.
             LaunchedEffect(card?.id) {
-                val current = card ?: return@LaunchedEffect
-                if (!enrichedIds.add(current.id)) return@LaunchedEffect
-
-                val repository = ServiceLocator.repository(applicationContext)
-                runCatching { repository.enrich(current) }.getOrNull()?.let { better ->
-                    if (ServiceLocator.pendingCard.value?.id == better.id) {
-                        ServiceLocator.showCard(better)
-                    }
-                }
+                card?.let { ServiceLocator.enrich(applicationContext, it) }
             }
 
             // Each hop is new information and earns a fresh viewing window, rather than
-            // counting down from whenever the first card of the chain went up.
-            LaunchedEffect(card, trail, autoDismissEnabled) {
-                if (card != null && autoDismissEnabled) {
+            // counting down from whenever the first card of the chain went up. The clock
+            // also holds while this card is still being summarized, so the finished
+            // summary gets its full time on screen instead of racing the timer.
+            LaunchedEffect(card, trail, autoDismissEnabled, enrichingId) {
+                if (card != null && autoDismissEnabled && enrichingId != card?.id) {
                     delay(Constants.AUTO_DISMISS_MILLIS)
                     dismiss()
                 }

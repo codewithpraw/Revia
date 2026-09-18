@@ -4,9 +4,14 @@ import android.content.Context
 import com.revia.data.db.Interruption
 import com.revia.data.db.ReviaDatabase
 import com.revia.data.repository.InterruptionRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.util.Collections
 
 /**
  * Connects the detection service to the UI. Both run in the same process, so a
@@ -65,5 +70,47 @@ object ServiceLocator {
 
     fun clearCard() {
         _pendingCard.value = null
+    }
+
+    /**
+     * Outlives any one screen, so a card being closed cannot cancel work it started.
+     * Nothing here is tied to a lifecycle - the process is the lifecycle.
+     */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val enrichRequested = Collections.synchronizedSet(mutableSetOf<Int>())
+
+    private val _enrichingId = MutableStateFlow<Int?>(null)
+
+    /** The card currently being summarized, so a screen can wait rather than close over it. */
+    val enrichingId: StateFlow<Int?> = _enrichingId.asStateFlow()
+
+    /**
+     * Upgrades a card's summary with the on-device model.
+     *
+     * Deliberately not run from the caller's scope: this used to sit in the resumption
+     * card's composition, so dismissing the card - or the ten second auto-dismiss firing
+     * first - cancelled the inference and the summary was lost for good. AICore only
+     * refuses a request *issued* from the background, so starting it here while a screen
+     * is up and letting it finish on its own is safe.
+     *
+     * The result is written to the database either way; it is only pushed back to the
+     * card if that same card is still the one on screen, so a dismissed card never
+     * reappears.
+     */
+    fun enrich(context: Context, interruption: Interruption) {
+        if (!enrichRequested.add(interruption.id)) return
+
+        appScope.launch {
+            _enrichingId.value = interruption.id
+            try {
+                val better = runCatching { repository(context).enrich(interruption) }.getOrNull()
+                if (better != null && _pendingCard.value?.id == interruption.id) {
+                    _pendingCard.value = better
+                }
+            } finally {
+                _enrichingId.value = null
+            }
+        }
     }
 }

@@ -77,7 +77,7 @@ fun SettingsScreen(onOpenApps: () -> Unit = {}) {
             onCheckedChange = { checked -> scope.launch { preferences.setCardsEnabled(checked) } }
         )
         SettingsToggleRow(
-            title = "Auto-dismiss after 10 seconds",
+            title = "Auto-dismiss after 5 seconds",
             checked = autoDismissEnabled,
             onCheckedChange = { checked -> scope.launch { preferences.setAutoDismissEnabled(checked) } }
         )

@@ -14,10 +14,12 @@ import androidx.core.content.ContextCompat
 import com.revia.R
 import com.revia.data.ServiceLocator
 import com.revia.data.db.Interruption
+import com.revia.util.AppFilter
 import com.revia.util.AppInfo
 import com.revia.data.preferences.UserPreferences
 import com.revia.ui.overlay.ResumptionCardActivity
 import com.revia.util.PermissionUtils
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,8 +76,24 @@ class InterruptionDetectionService : Service() {
         if (pollJob == null) {
             startPolling()
             watchForDismissal()
+            trackObservedApps()
         }
         return START_STICKY
+    }
+
+    /**
+     * The accessibility service loads this list too, but it cannot be relied on to: OEM
+     * power management revokes accessibility, and the list living only there meant every
+     * app read as unwatched afterwards - detection silently captured nothing while the
+     * notification and the Home screen both still claimed to be watching. Detection does
+     * not need accessibility to work, so it does not need it to know what to watch.
+     */
+    private fun trackObservedApps() {
+        scope.launch {
+            UserPreferences(applicationContext).observedApps.collectLatest {
+                AppFilter.setObserved(it)
+            }
+        }
     }
 
     private fun startPolling() {
@@ -209,7 +227,15 @@ class InterruptionDetectionService : Service() {
     private fun watchForDismissal() {
         scope.launch {
             ServiceLocator.pendingCard.collect { card ->
-                if (card == null) armRenag() else nagJob?.cancel()
+                if (card == null) {
+                    armRenag()
+                    return@collect
+                }
+                nagJob?.cancel()
+                // The summarizer replaces the card with a better-worded copy of itself.
+                // The root has to follow, or the next re-nag or hop would re-show the
+                // copy captured before the model ran and put the template text back.
+                if (card.id == activeRoot?.id) activeRoot = card
             }
         }
     }
