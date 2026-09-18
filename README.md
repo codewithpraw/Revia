@@ -164,6 +164,6 @@ app/src/main/kotlin/com/revia/
 
 ## Status
 
-Built for the iQOO Hackathon Battle Ground Chennai, productivity track. The full loop —
+Built for the iQOO Hackathon Battle Ground Hyderbad, productivity track. The full loop —
 detect, capture, summarize on-device, display over the app — works end to end on real
 hardware.
