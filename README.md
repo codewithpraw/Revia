@@ -227,7 +227,7 @@ worth naming rather than burying in a commit log:
 
 ## Status
 
-Built for the iQOO Hackathon Battle Ground, productivity track. The full loop — detect,
-capture, summarize on-device, display over the app — works end to end on real hardware,
-verified on both an iQOO 13 (Gemini Nano available) and a device without AICore (template
-fallback confirmed).
+Built for the iQOO Hackathon Battle Ground Hyderabad, productivity track. The full loop —
+detect, capture, summarize on-device, display over the app — works end to end on real
+hardware, verified on both an iQOO 13 (Gemini Nano available) and a device without AICore
+(template fallback confirmed).
